@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ECS Cluster with Fargate capacity provider and an nginx service
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: daniel-ecs-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+  FargateSpot:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders: 
+        - FARGATE_SPOT
+        - FARGATE
+      Cluster: { Ref: ECSCluster }
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+  NginxTd:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions: 
+        - Image: nginx
+          Name: main
+      Cpu: 256
+      Family: nginx
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities: 
+        - FARGATE
+      TaskRoleArn:
+        Ref: MyTaskRole
+  NginxService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: { Ref: ECSCluster }
+      TaskDefinition: { Ref: NginxTd }
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - { Ref: PrivateSubnet }
+          SecurityGroups:
+            - sg-044b356ba8ed57fd0
+      ServiceName: nginx
+  NatGWElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NatGW:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - NatGWElasticIP
+          - AllocationId
+      SubnetId: subnet-0a2dec87adff9e658
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-central-1c
+      CidrBlock: 172.31.48.0/20
+      MapPublicIpOnLaunch: false
+      VpcId: vpc-0c87c06885c7861df
+  PrivateSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: vpc-0c87c06885c7861df
+  NatGWRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: { Ref: NatGW }
+      RouteTableId: { Ref: PrivateSubnetRouteTable }
+  PrivateRoutetableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: { Ref: PrivateSubnetRouteTable }
+      SubnetId: { Ref: PrivateSubnet }
+  MyTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: "Task role"
+      RoleName: task-role
+#      Policies:
+#        - PolicyName: allow-ssm
+#          PolicyDocument:
+#            Version: "2012-10-17"
+#            Statement:
+#              - Effect: Allow
+#                Action:
+#                  - "ssmmessages:CreateControlChannel"
+#                  - "ssmmessages:CreateDataChannel"
+#                  - "ssmmessages:OpenControlChannel"
+#                  - "ssmmessages:OpenDataChannel"
+#                Resource: '*'
+#

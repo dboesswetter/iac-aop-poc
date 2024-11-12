@@ -1,0 +1,86 @@
+{
+    "out": "(: unflatten(&( flatten($.) $. -> 'enable_execute_command_properties' $. -> 'vpc_endpoint_resources' $. -> 'task_role_if_required' $. -> 'set_task_role' $. -> task_role_policy )) :)",
+    "enable_execute_command_properties": "(: { map(keys(grep($Resources 'resource_is_service')) 'enable_execute_command_attribute_path') } :)",
+    "enable_execute_command_attribute_path": "(: [ &('Resources.' $item '.Properties.EnableExecuteCommand'), 'true'] :)",
+    "resource_is_service": "(: $item.Type == 'AWS::ECS::Service' :)",
+    "resource_is_task_definition": "(: $item.Type == 'AWS::ECS::TaskDefinition' :)",
+    "vpc_endpoint_resources": "(: flatten( { map( [ 'ec2messages', 'ssm', 'ssmmessages'] 'map_vpc_endpoint' $. -> map_vpc_endpoint_extra ) } '.' 'Resources') :)",
+    "map_vpc_endpoint": [
+        "(: capitalize( $item & 'Endpoint' ) :)", {
+            "Type" : "AWS::EC2::VPCEndpoint",
+            "Properties" : {
+                "PrivateDnsEnabled" : true,
+                "SecurityGroupIds" : "(: $extra.security_group_ids :)",
+                "ServiceName" : "(: com.amazonaws.eu-central-1.$item :)",
+                "SubnetIds" : "(: $extra.subnet_ids :)",
+                "VpcEndpointType" : "Interface",
+                "VpcId" : "(: $extra.vpc_id :)"
+            }
+        }
+    ],
+    "map_vpc_endpoint_extra": {
+        "security_group_ids": [ "sg-044b356ba8ed57fd0" ],
+        "subnet_ids": "(: union( map( grep($Resources 'resource_is_service') '(: $item.Properties.NetworkConfiguration.AwsvpcConfiguration.Subnets[0] :)' ) ) :)",
+        "vpc_id": "(: $.Resources.PrivateSubnet.Properties.VpcId :)"
+    },
+    "task_role_if_required": "(: ?(member('false' map(grep($Resources 'resource_is_task_definition') 'has_task_role')) flatten($. -> task_role '.' 'Resources') {} ) :)",
+    "has_task_role": "(: exists($item.Properties.TaskRoleArn) :)",
+    "has_no_task_role": "(: !exists($item.Properties.TaskRoleArn) :)",
+    "task_role": {
+        "TaskRole": {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "ecs-tasks.amazonaws.com"
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Description" : "Generated task role",
+                "RoleName" : "enable_exec_task_role",
+                "Policies": [{
+                    "PolicyName": "execute_comand",
+                    "PolicyDocument": "(: $. -> ssm_policy :)"
+                }]
+            }
+        }
+    },
+    "set_task_role": "(: flatten( { map(keys(grep(grep($Resources 'resource_is_task_definition') 'has_no_task_role')) 'add_task_role_property') } ) :)",
+    "add_task_role_property": "(: [ &('Resources.' $item '.Properties.TaskRoleArn'), { ['Ref', 'TaskRole'] } ] :)",
+    "task_role_policy": "(: flatten({ map(union(values(grep(grep($Resources 'resource_is_task_definition') 'has_task_role'))) '(: $. -> role_policy_pair :)') } '.' 'Resources') :)",
+    "role_policy_pair": [
+        "TaskRoleSSMPolicy",
+        "(: $. -> role_policy :)"
+    ],
+    "role_policy": {
+        "Type" : "AWS::IAM::RolePolicy",
+        "Properties" : {
+            "PolicyDocument" : "(: $. -> 'ssm_policy' :)",
+            "PolicyName" : "execute_comand",
+            "RoleName" : "(: $item.Properties.TaskRoleArn :)"
+        }
+    },
+    "ssm_policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": [
+                "ssmmessages:CreateControlChannel",
+                "ssmmessages:CreateDataChannel",
+                "ssmmessages:OpenControlChannel",
+                "ssmmessages:OpenDataChannel"
+                ],
+                "Resource": "*"
+            }
+        ]
+    }
+}
