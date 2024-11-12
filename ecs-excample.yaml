@@ -44,7 +44,7 @@ Resources:
           Subnets:
             - { Ref: PrivateSubnet }
           SecurityGroups:
-            - sg-044b356ba8ed57fd0
+            - XYZ-SG-ID-XYZ
       ServiceName: nginx
   NatGWElasticIP:
     Type: AWS::EC2::EIP
@@ -57,18 +57,18 @@ Resources:
         Fn::GetAtt:
           - NatGWElasticIP
           - AllocationId
-      SubnetId: subnet-0a2dec87adff9e658
+      SubnetId: XYZ-SUBNET-ID-XYZ
   PrivateSubnet:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: eu-central-1c
       CidrBlock: 172.31.48.0/20
       MapPublicIpOnLaunch: false
-      VpcId: vpc-0c87c06885c7861df
+      VpcId: XYZ-VPC-ID-XYZ
   PrivateSubnetRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: vpc-0c87c06885c7861df
+      VpcId: XYZ-VPC-ID-XYZ
   NatGWRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -94,16 +94,3 @@ Resources:
               - 'sts:AssumeRole'
       Description: "Task role"
       RoleName: task-role
-#      Policies:
-#        - PolicyName: allow-ssm
-#          PolicyDocument:
-#            Version: "2012-10-17"
-#            Statement:
-#              - Effect: Allow
-#                Action:
-#                  - "ssmmessages:CreateControlChannel"
-#                  - "ssmmessages:CreateDataChannel"
-#                  - "ssmmessages:OpenControlChannel"
-#                  - "ssmmessages:OpenDataChannel"
-#                Resource: '*'
-#

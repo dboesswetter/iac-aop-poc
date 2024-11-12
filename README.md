@@ -1,6 +1,9 @@
 # AOP for IaC PoC
 
-This repo contains the code mentioned in my Medium article.
+This repo contains the code mentioned in my Medium article
+"Musings on IaC":
+
+https://medium.com/@d5b10/musings-on-iac-48dbc75d8832
 
 These files try to implement Aspect-Oriented Programming (AOP) for
 Infrastructure as Code (IaC). It is a proof of concept (PoC) which
@@ -17,11 +20,17 @@ flattened data structures which either add resources or attributes or
 change previously defined attributes. Finally the result is unflattened
 again to yield a valid Cloud Formation template.
 
-You can run the example after installing DTL and then running:
+I was too lazy to use Cloudformation parametes, so you need to go 
+through ecs-example.yaml and replace all the placeholders (XYZ)
+with your VPC, subnet and security group IDs.
+
+You can run the example after installing DTL and then calling:
 
 ```
 ./node_modules/.bin/dtl -f enable_ecs_execute_command.json ecs-excample.yaml -O yaml > out.yaml
 ```
+
+The resulting out.yaml can be deployed with CloudFormation.
 
 # Problems
 
